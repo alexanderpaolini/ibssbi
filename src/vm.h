@@ -72,7 +72,6 @@ typedef struct
 void push(Stack *s, Value value);
 Value pop(Stack *s);
 
-int op_has_value(Opcode op);
 void execute(VM *vm);
 int execute_inst(Opcode op, VM *vm);
 int execute_simple_inst(Opcode op, VM *vm);

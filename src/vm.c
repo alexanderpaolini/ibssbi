@@ -86,17 +86,6 @@ Program read_program(Header *header, FILE *input_file)
     return program;
 }
 
-int op_has_value(Opcode op)
-{
-    switch (op)
-    {
-    case PUSH:
-        return 1;
-    default:
-        return 0;
-    }
-}
-
 void execute(VM *vm)
 {
     while (vm->running)
