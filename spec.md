@@ -4,7 +4,7 @@ This simple bytecode virtual machine is stack-based. Operations will be 8 bits. 
 
 **Format**:  
 `OP A`  
-OP represents the 32-bit opcode.
+OP represents the 8-bit opcode.
 A represents the input 32-bit integer.
 
 ## Operators

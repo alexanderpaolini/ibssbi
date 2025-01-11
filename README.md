@@ -11,8 +11,6 @@ It supports operations such as:
 
 Actual specification can be found [here](./spec.md)
 
-Sure! Here's a sample `Usage` section for your program based on the provided information:
-
 ## Usage
 
 **To Compile**:
