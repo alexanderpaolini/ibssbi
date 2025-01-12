@@ -233,6 +233,7 @@ tests = [
             PUSH 3
             MULT
             PRINT_INT
+            
             HALT
         """,
         [12]
@@ -244,9 +245,148 @@ tests = [
             PUSH 2
             ADD
             PRINT_INT
+            
             HALT
         """,
         [3]
+    ),
+    (
+        "test_logical_and",
+        """
+            PUSH 1
+            PUSH 1
+            L_AND
+            PRINT_INT
+            
+            HALT
+        """,
+        [1]
+    ),
+    (
+        "test_logical_or",
+        """
+            PUSH 0
+            PUSH 1
+            L_OR
+            PRINT_INT
+            
+            HALT
+        """,
+        [1]
+    ),
+    (
+        "test_logical_xor",
+        """
+            PUSH 1
+            PUSH 0
+            L_XOR
+            PRINT_INT
+            
+            HALT
+        """,
+        [1]
+    ),
+    (
+        "test_logical_not",
+        """
+            PUSH 0
+            L_NOT
+            PRINT_INT
+            
+            PUSH 1
+            L_NOT
+            PRINT_INT
+            
+            HALT
+        """,
+        [1, 0]
+    ),
+    (
+        "test_bitwise_and",
+        """
+            PUSH 5
+            PUSH 3
+            B_AND
+            PRINT_INT
+            
+            HALT
+        """,
+        [1]
+    ),
+    (
+        "test_bitwise_or",
+        """
+            PUSH 5
+            PUSH 3
+            B_OR
+            PRINT_INT
+            
+            HALT
+        """,
+        [7]
+    ),
+    (
+        "test_bitwise_xor",
+        """
+            PUSH 5
+            PUSH 3
+            B_XOR
+            PRINT_INT
+            
+            HALT
+        """,
+        [6]
+    ),
+    (
+        "test_bitwise_not",
+        """
+            PUSH 5
+            B_NOT
+            PRINT_INT
+            
+            HALT
+        """,
+        [-6]
+    ),
+    (
+        "test_power",
+        """
+            PUSH 2
+            PUSH 3
+            POW
+            PRINT_INT
+            
+            HALT
+        """,
+        [8]
+    ),
+    (
+        "test_swap",
+        """
+            PUSH 1
+            PUSH 2
+            SWAP
+            PRINT_INT
+            PRINT_INT
+            
+            HALT
+        """,
+        [1, 2]
+    ),
+    (
+        "test_rotate",
+        """
+            PUSH 1
+            PUSH 2
+            PUSH 3
+            ROT
+            PRINT_INT
+            PRINT_INT
+            PRINT_INT
+            
+            HALT
+        """,
+        [3, 1, 2]
     )
 ]
 
@@ -283,7 +423,7 @@ for test_name, code, expected_output in tests:
 
     if output != expected:
         print(f"Test {test_name} failed: Expected [{', '.join(map(str, expected_output))}], but got [{', '.join(output.split('\n'))}]")
-        output_str = "[" + ' '.join(expected_output) + "]"
+        output_str = "[" + ' '.join(map(str, expected_output)) + "]"
     else:
         print(f"Test {test_name} passed.")
 

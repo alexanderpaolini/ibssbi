@@ -1,4 +1,5 @@
 #include <stdlib.h>
+#include <math.h>
 
 #include "vm.h"
 
@@ -105,7 +106,7 @@ int execute_inst(Opcode op, VM *vm)
 {
     int pc = vm->pc;
     Stack *stack = vm->stack;
-    int val;
+    Value v1, v2, v3;
     switch (op)
     {
     case PUSH:
@@ -115,22 +116,53 @@ int execute_inst(Opcode op, VM *vm)
         pop(stack);
         return pc + 1;
     case DUP:
-        val = pop(stack);
-        push(stack, val);
-        push(stack, val);
+        v1 = pop(stack);
+        push(stack, v1);
+        push(stack, v1);
+        return pc + 1;
+    case SWAP:
+        v1 = pop(stack);
+        v2 = pop(stack);
+        push(stack, v1);
+        push(stack, v2);
+        return pc + 1;
+    case ROT:
+        v1 = pop(stack);
+        v2 = pop(stack);
+        v3 = pop(stack);
+        push(stack, v2);
+        push(stack, v3);
+        push(stack, v1);
         return pc + 1;
     case ADD:
     case SUB:
     case DIV:
     case MULT:
     case MOD:
+    case POW:
     case EQ:
     case NEQ:
     case LT:
     case LTE:
     case GT:
     case GTE:
+    case L_AND:
+    case L_OR:
+    case L_XOR:
+    case B_AND:
+    case B_OR:
+    case B_XOR:
+    case SHL:
+    case SHR:
         return execute_simple_inst(op, vm);
+    case B_NOT:
+        v1 = pop(stack);
+        push(stack, ~v1);
+        return pc + 1;
+    case L_NOT:
+        v1 = pop(stack);
+        push(stack, !v1);
+        return pc + 1;
     case JMP:
     case JMP_IF_TRUE:
     case JMP_IF_FALSE:
@@ -191,6 +223,33 @@ int execute_simple_inst(Opcode op, VM *vm)
         break;
     case GTE:
         result = lhs >= rhs;
+        break;
+    case POW:
+        result = pow(lhs, rhs);
+        break;
+    case L_AND:
+        result = lhs && rhs;
+        break;
+    case L_OR:
+        result = lhs || rhs;
+        break;
+    case L_XOR:
+        result = (lhs || rhs) && !(lhs && rhs);
+        break;
+    case B_AND:
+        result = lhs & rhs;
+        break;
+    case B_OR:
+        result = lhs | rhs;
+        break;
+    case B_XOR:
+        result = lhs ^ rhs;
+        break;
+    case SHL:
+        result = lhs << rhs;
+        break;
+    case SHR:
+        result = lhs >> rhs;
         break;
     default:
         result = 0;

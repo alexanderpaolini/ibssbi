@@ -1,5 +1,7 @@
 # 1 + 1 = 2
 
+*Note*: This example, although seemingly valid, was created before I shifted around instruction opcodes. As such, PRINT_INT is no longer 0x31 and is how 0xF1.
+
 Fun fact: **1 + 1 = 2**  
 More specifically: `1 1 +` = 2
 

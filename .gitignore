@@ -1,6 +1,9 @@
 # MacOS
 .DS_Store
 
+# Testing
+_testing
+
 # Prerequisites
 *.d
 

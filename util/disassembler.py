@@ -12,24 +12,39 @@ opcode_dict = {
     "PUSH": 0x01,
     "POP": 0x02,
     "DUP": 0x03,
+    "SWAP": 0x04,
+    "ROT": 0x05,
     "ADD": 0x10,
     "SUB": 0x11,
     "DIV": 0x12,
     "MULT": 0x13,
     "MOD": 0x14,
-    "EQ": 0x15,
-    "NEQ": 0x16,
-    "LT": 0x17,
-    "LTE": 0x18,
-    "GT": 0x19,
-    "GTE": 0x1A,
-    "JMP": 0x20,
-    "JMP_IF_TRUE": 0x21,
-    "JMP_IF_FALSE": 0x22,
-    "PRINT": 0x30,
-    "PRINT_INT": 0x31,
+    "POW": 0x15,
+    "EQ": 0x20,
+    "NEQ": 0x21,
+    "LT": 0x22,
+    "LTE": 0x23,
+    "GT": 0x24,
+    "GTE": 0x25,
+    "L_AND": 0x30,
+    "L_OR": 0x31,
+    "L_XOR": 0x32,
+    "L_NOT": 0x33,
+    "B_AND": 0x34,
+    "B_OR": 0x35,
+    "B_XOR": 0x36,
+    "B_NOT": 0x37,
+    "SHL": 0x38,
+    "SHR": 0x39,
+    "JMP": 0xE0,
+    "JMP_IF_TRUE": 0xE1,
+    "JMP_IF_FALSE": 0xE2,
+    "PRINT": 0xF0,
+    "PRINT_INT": 0xF1,
     "HALT": 0xFF
 }
+
+opcodes_with_values = ["PUSH", "JMP", "JMP_IF_TRUE", "JMP_IF_FALSE"]
 
 def read_bytes(file_path):
     with open(file_path, 'rb') as file:
@@ -66,11 +81,7 @@ def disassemble(bytecode):
             output.append(f"{instruction}")
             
             # Handle opcodes that have associated values
-            if instruction == "PUSH":
-                value = int.from_bytes(bytecode[idx:idx+4], byteorder='little')
-                output[-1] += f" {value}"
-                idx += 4
-            elif instruction in ["JMP", "JMP_IF_TRUE", "JMP_IF_FALSE"]:
+            if instruction in opcodes_with_values:
                 jump_target = int.from_bytes(bytecode[idx:idx+4], byteorder='little')
                 output[-1] += f" {jump_target}"
                 idx += 4
