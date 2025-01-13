@@ -1,0 +1,53 @@
+; Fib(n) | 0≤n≤93
+PUSH 93
+
+JMP 44
+
+; Halt statements
+; Print 0 - 18
+PUSH 0
+PRINT_INT
+HALT
+
+; Print 1 - 29
+PUSH 1
+PRINT_INT
+HALT
+
+; Print value - 40
+ROT
+ROT
+PRINT_INT
+HALT
+
+; Main instructions
+DUP
+PUSH 0
+EQ
+JMP_IF_TRUE 18
+
+DUP
+PUSH 2
+LTE
+JMP_IF_TRUE 29
+
+PUSH 2
+SUB
+
+PUSH 1
+PUSH 1
+
+; Loop starts here
+DUP
+ROT
+ADD
+
+ROT
+PUSH 1
+SUB
+
+DUP
+JMP_IF_FALSE 40
+ROT
+ROT
+JMP 112
