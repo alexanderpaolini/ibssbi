@@ -69,8 +69,8 @@ Program read_program(Header *header, FILE *input_file)
     Program program;
     program.header = header;
 
-    program.instructions = (u_int8_t *)(malloc(sizeof(u_int8_t) * header->size));
-    fread(program.instructions, sizeof(u_int8_t), header->size, input_file);
+    program.instructions = (Byte *)(malloc(sizeof(Byte) * header->size));
+    fread(program.instructions, sizeof(Byte), header->size, input_file);
 
     if (DEBUG)
     {
@@ -95,45 +95,45 @@ void execute(VM *vm)
     }
 }
 
-Value get_value(int position, Byte *instructions)
+Word get_value(int position, Byte *instructions)
 {
     // Pointer arithmetic:
     // Cast the value of the bytes starting at position to an int
-    return *(Value *)((Byte *)instructions + position);
+    return *(Word *)((Byte *)instructions + position);
 }
 
 int execute_inst(Opcode op, VM *vm)
 {
     int pc = vm->pc;
     Stack *stack = vm->stack;
-    Value v1, v2, v3;
+    Word v1, v2, v3;
     switch (op)
     {
     case PUSH:
-        push(stack, get_value(++pc, vm->program->instructions));
-        return pc + sizeof(Value);
+        push(stack, get_value(pc + sizeof(Byte), vm->program->instructions));
+        return pc + sizeof(Byte) + sizeof(Word);
     case POP:
         pop(stack);
-        return pc + 1;
+        return pc + sizeof(Byte);
     case DUP:
         v1 = pop(stack);
         push(stack, v1);
         push(stack, v1);
-        return pc + 1;
+        return pc + sizeof(Byte);
     case SWAP:
         v1 = pop(stack);
         v2 = pop(stack);
         push(stack, v1);
         push(stack, v2);
-        return pc + 1;
+        return pc + sizeof(Byte);
     case ROT:
-        v1 = pop(stack);
-        v2 = pop(stack);
-        v3 = pop(stack);
-        push(stack, v2);
-        push(stack, v3);
+        v1 = pop(stack); // C
+        v2 = pop(stack); // B
+        v3 = pop(stack); // A 
+        push(stack, v2); // ABC -> BCA
         push(stack, v1);
-        return pc + 1;
+        push(stack, v3);
+        return pc + sizeof(Byte);
     case ADD:
     case SUB:
     case DIV:
@@ -158,21 +158,43 @@ int execute_inst(Opcode op, VM *vm)
     case B_NOT:
         v1 = pop(stack);
         push(stack, ~v1);
-        return pc + 1;
+        return pc + sizeof(Byte);
     case L_NOT:
         v1 = pop(stack);
         push(stack, !v1);
-        return pc + 1;
+        return pc + sizeof(Byte);
+    case ALLOC:
+        v1 = get_value(pc + sizeof(Byte), vm->program->instructions);
+        Word *mem = malloc(sizeof(Word) * v1);
+        if (mem == NULL) {
+            fprintf(stderr, "ERROR: COULD NOT ALLOCATE MEMORY\n");
+            exit(EXIT_FAILURE);
+        }
+        push(stack, (Word) mem);
+        return pc + sizeof(Byte) + sizeof(Word);
+    case FREE:
+        v1 = pop(stack);
+        free((Word *)v1);
+        return pc + sizeof(Byte);
+    case STO:
+        v1 = pop(stack);
+        v2 = pop(stack);
+        *((Word *)v2) = v1;
+        return pc + sizeof(Byte);
+    case RET:
+        v1 = pop(stack);
+        push(stack, *(Word *)v1);
+        return pc + sizeof(Byte);
     case JMP:
     case JMP_IF_TRUE:
     case JMP_IF_FALSE:
         return execute_jump_inst(op, vm);
     case PRINT:
-        printf("%c", pop(stack));
-        return pc + 1;
+        printf("%c", (char) pop(stack));
+        return pc + sizeof(Byte);
     case PRINT_INT:
-        printf("%d\n", pop(stack));
-        return pc + 1;
+        printf("%lu\n", pop(stack));
+        return pc + sizeof(Byte);
     case HALT:
         vm->running = 0;
         return 0;
@@ -185,9 +207,9 @@ int execute_inst(Opcode op, VM *vm)
 
 int execute_simple_inst(Opcode op, VM *vm)
 {
-    int rhs = pop(vm->stack);
-    int lhs = pop(vm->stack);
-    int result;
+    Word rhs = pop(vm->stack);
+    Word lhs = pop(vm->stack);
+    Word result;
 
     switch (op)
     {
@@ -252,12 +274,14 @@ int execute_simple_inst(Opcode op, VM *vm)
         result = lhs >> rhs;
         break;
     default:
+        fprintf(stderr, "ERROR: UNKNOWN SIMPLE INSTRUCTION: 0x%x\n", op);
+        exit(EXIT_FAILURE);
         result = 0;
         break;
     }
 
     push(vm->stack, result);
-    return vm->pc + 1;
+    return vm->pc + sizeof(Byte);
 }
 
 int execute_jump_inst(Opcode op, VM *vm)
@@ -271,18 +295,18 @@ int execute_jump_inst(Opcode op, VM *vm)
         (op == JMP_IF_TRUE && top) ||
         (op == JMP_IF_FALSE && !top))
     {
-        Value val = get_value(pc + 1, vm->program->instructions);
+        Word val = get_value(pc + sizeof(Byte), vm->program->instructions);
         return val;
     }
-    return pc + 1 + sizeof(Value);
+    return pc + sizeof(Byte) + sizeof(Word);
 }
 
-void push(Stack *s, Value val)
+void push(Stack *s, Word val)
 {
     s->stack[s->sp++] = val;
 }
 
-Value pop(Stack *s)
+Word pop(Stack *s)
 {
     return s->stack[--s->sp];
 }

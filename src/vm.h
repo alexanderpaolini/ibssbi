@@ -9,13 +9,13 @@
 #define STACK_SIZE 256
 
 typedef u_int8_t Byte;
-typedef u_int32_t Value;
+typedef size_t Word;
 
 typedef struct
 {
-    short major;
-    short minor;
-    short patch;
+    u_int16_t major;
+    u_int16_t minor;
+    u_int16_t patch;
     int size;
 } Header;
 
@@ -59,6 +59,11 @@ typedef enum
     B_NOT = 0x37,
     SHL = 0x38,
     SHR = 0x39,
+    // Memory Manipulation
+    ALLOC = 0x40,
+    FREE = 0x41,
+    STO = 0x42,
+    RET = 0x43,
     // Control Flow
     JMP = 0xE0,
     JMP_IF_TRUE = 0xE1,
@@ -71,7 +76,7 @@ typedef enum
 
 typedef struct
 {
-    Value stack[STACK_SIZE];
+    Word stack[STACK_SIZE];
     int sp;
 } Stack;
 
@@ -83,8 +88,8 @@ typedef struct
     int running;
 } VM;
 
-void push(Stack *s, Value value);
-Value pop(Stack *s);
+void push(Stack *s, Word value);
+Word pop(Stack *s);
 
 void execute(VM *vm);
 int execute_inst(Opcode op, VM *vm);

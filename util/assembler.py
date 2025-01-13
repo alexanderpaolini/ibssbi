@@ -1,61 +1,31 @@
 import sys
+import struct
+
+from common import opcode_dict, opcodes_with_values
 
 VERSION_MAJOR = 0
 VERSION_MINOR = 0
 VERSION_PATCH = 1
 
+size_t = struct.calcsize("P")
+u_int8_t = struct.calcsize("B")
+u_int16_t = 2 * struct.calcsize("B")
+size_int = struct.calcsize("i")
+
 class InvalidArgumentsException(Exception):
     def __init__(self, message="Invalid arguments provided"):
         super().__init__(message)
 
-opcode_dict = {
-    "PUSH": 0x01,
-    "POP": 0x02,
-    "DUP": 0x03,
-    "SWAP": 0x04,
-    "ROT": 0x05,
-    "ADD": 0x10,
-    "SUB": 0x11,
-    "DIV": 0x12,
-    "MULT": 0x13,
-    "MOD": 0x14,
-    "POW": 0x15,
-    "EQ": 0x20,
-    "NEQ": 0x21,
-    "LT": 0x22,
-    "LTE": 0x23,
-    "GT": 0x24,
-    "GTE": 0x25,
-    "L_AND": 0x30,
-    "L_OR": 0x31,
-    "L_XOR": 0x32,
-    "L_NOT": 0x33,
-    "B_AND": 0x34,
-    "B_OR": 0x35,
-    "B_XOR": 0x36,
-    "B_NOT": 0x37,
-    "SHL": 0x38,
-    "SHR": 0x39,
-    "JMP": 0xE0,
-    "JMP_IF_TRUE": 0xE1,
-    "JMP_IF_FALSE": 0xE2,
-    "PRINT": 0xF0,
-    "PRINT_INT": 0xF1,
-    "HALT": 0xFF
-}
-
-opcodes_with_values = ["PUSH", "JMP", "JMP_IF_TRUE", "JMP_IF_FALSE"]
-
 def read_input_file(file_path):
     with open(file_path, 'r') as file:
-        return file.read()
+        return '\n'.join(map(lambda x: x.split(';')[0], file.read().split('\n')))
 
 def parse_tokens(content):
     return content.split()
 
 def process_opcode(token, bytecode):
     if token in opcode_dict:
-        bytecode.append(opcode_dict[token].to_bytes(1, byteorder='little'))
+        bytecode.append(opcode_dict[token].to_bytes(u_int8_t, byteorder='little'))
         return True
     return False
 
@@ -64,7 +34,7 @@ def process_opcodes_with_values(token, tokens, i, bytecode):
         if i < len(tokens):
             value = tokens[i]
             try:
-                bytecode.append(int(value).to_bytes(4, byteorder='little'))
+                bytecode.append(int(value).to_bytes(size_t, byteorder='little'))
             except ValueError:
                 raise Exception(f"Invalid value '{value}' for opcode '{token}'")
             return True
@@ -81,12 +51,12 @@ def assemble_bytecode(tokens):
         token = tokens[i]
         
         if process_opcode(token, bytecode):
-            sz += 1
             i += 1
+            sz += u_int8_t
             
             if process_opcodes_with_values(token, tokens, i, bytecode):
                 i += 1
-                sz += 4
+                sz += size_t
         else:
             raise Exception(f"Unknown opcode '{token}' at position {i}")
     
@@ -94,10 +64,10 @@ def assemble_bytecode(tokens):
 
 def write_bytecode(bytecode, sz, filename):
     with open(filename, 'wb') as file:
-        file.write(VERSION_MAJOR.to_bytes(2, byteorder='little'))
-        file.write(VERSION_MINOR.to_bytes(2, byteorder='little'))
-        file.write(VERSION_PATCH.to_bytes(2, byteorder='little'))
-        file.write(sz.to_bytes(4, byteorder='little'))
+        file.write(VERSION_MAJOR.to_bytes(u_int16_t, byteorder='little'))
+        file.write(VERSION_MINOR.to_bytes(u_int16_t, byteorder='little'))
+        file.write(VERSION_PATCH.to_bytes(u_int16_t, byteorder='little'))
+        file.write(sz.to_bytes(size_int, byteorder='little'))
         file.write(b''.join(bytecode))
 
 def main():

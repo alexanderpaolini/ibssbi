@@ -56,6 +56,15 @@ A represents the input 32-bit integer.
 | SHL             | `0x38`     | N/A   | Pop two values, shift the first value left by the second (bitwise shift), and push the result. |
 | SHR             | `0x39`     | N/A   | Pop two values, shift the first value right by the second (bitwise shift), and push the result. |
 
+### Memory Manipulation Operators
+
+| **Name**    | **Opcode** | **A**    | **Description**                            |
+|-------------|------------|----------|--------------------------------------------|
+| ALLOC       | `0x40`     | `<i8>`   | Allocate `A` bytes and return the address.  |
+| FREE       | `0x41`     | `<i8>`   | Free the memory at the address at the top of the stack.  |
+| STO         | `0x42`     | N/A      | Store the top of the stack to the address below it. Pops both values from the stack |
+| RET         | `0x43`     | N/A      | Pushes the value at the address popped from the stack to the stack.|
+
 ### Control Flow Operators
 
 | **Name**        | **Opcode** | **A** | **Description**                                      |

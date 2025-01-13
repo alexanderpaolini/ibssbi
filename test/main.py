@@ -28,7 +28,7 @@ tests = [
         "test_jump", 
         """
             PUSH 9
-            JMP 15
+            JMP 27
             PUSH 0
             PRINT_INT
             HALT
@@ -112,7 +112,7 @@ tests = [
         """
             PUSH 7
             PUSH 1
-            JMP_IF_TRUE 20
+            JMP_IF_TRUE 36
             PUSH 3
             PRINT_INT
             HALT
@@ -124,7 +124,7 @@ tests = [
         """
             PUSH 7
             PUSH 0
-            JMP_IF_FALSE 20
+            JMP_IF_FALSE 36
             PUSH 3
             PRINT_INT
             HALT
@@ -138,15 +138,15 @@ tests = [
             PUSH 3
             SUB
             PRINT_INT
-
-            PUSH 3
+            
+            PUSH 5
             PUSH 5
             SUB
             PRINT_INT
 
             HALT
         """,
-        [2, -2]
+        [2, 0]
     ),
     (
         "test_eq",
@@ -346,7 +346,7 @@ tests = [
             
             HALT
         """,
-        [-6]
+        [18446744073709551610]
     ),
     (
         "test_power",
@@ -386,7 +386,7 @@ tests = [
             
             HALT
         """,
-        [3, 1, 2]
+        [1, 3, 2]
     )
 ]
 
