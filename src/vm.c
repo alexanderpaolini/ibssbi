@@ -3,6 +3,25 @@
 
 #include "vm.h"
 
+/**
+ * Explanation of how versioning will work:
+ * 
+ * A major version change means that a large
+ *  part of the program has been rewritten
+ *  Example: Changing the header of a file
+ *         | Changing the structure of the bytecode
+ * 
+ * A minor version change means that a feature has been
+ *  reworked. This means that code almost definitely will
+ *  not work with the new interpreter.
+ *  Example: Changing the address of an instruction.
+ * 
+ * A patch version change means that a small
+ *  feature has been added.
+ *  Example: Adding a new DEBUG instruction
+ * 
+ * Note: I dont see myself adding a DEBUG instruction
+ */
 #define VERSION_MAJOR 0
 #define VERSION_MINOR 0
 #define VERSION_PATCH 1
@@ -33,11 +52,19 @@ Header read_header(FILE *input_file)
         exit(EXIT_FAILURE);
     }
 
+    if (header.minor != VERSION_MINOR)
+    {
+        fprintf(stderr, "ERROR: EXECUTABLE MINOR VERSION DOES NOT MATCH.\n");
+        fprintf(stderr, "\tEXPECTED: %d\n", VERSION_MINOR);
+        fprintf(stderr, "\tFOUND: %d\n", header.minor);
+        exit(EXIT_FAILURE);
+    }
+
     if (header.minor > VERSION_MINOR)
     {
-        fprintf(stderr, "ERROR: EXECUTABLE MINOR VERSION IS TOO HIGH.\n");
-        fprintf(stderr, "\tEXPECTED: %d or lower\n", VERSION_MINOR);
-        fprintf(stderr, "\tFOUND: %d\n", header.minor);
+        fprintf(stderr, "ERROR: EXECUTABLE PATCH VERSION DOES NOT MATCH.\n");
+        fprintf(stderr, "\tEXPECTED: <=%d\n", VERSION_PATCH);
+        fprintf(stderr, "\tFOUND: %d\n", header.patch);
         exit(EXIT_FAILURE);
     }
 
@@ -130,7 +157,7 @@ int execute_inst(Opcode op, VM *vm)
     case ROT:
         v1 = pop(stack); // C
         v2 = pop(stack); // B
-        v3 = pop(stack); // A 
+        v3 = pop(stack); // A
         push(stack, v2); // ABC -> BCA
         push(stack, v1);
         push(stack, v3);
@@ -147,31 +174,32 @@ int execute_inst(Opcode op, VM *vm)
     case LTE:
     case GT:
     case GTE:
-    case L_AND:
-    case L_OR:
-    case L_XOR:
-    case B_AND:
-    case B_OR:
-    case B_XOR:
-    case SHL:
-    case SHR:
+    case AND:
+    case OR:
+    case XOR:
+    case BITWISE_AND:
+    case BITWISE_OR:
+    case BITWISE_XOR:
+    case SHIFT_LEFT:
+    case SHIFT_RIGHT:
         return execute_simple_inst(op, vm);
-    case B_NOT:
+    case BITWISE_NOT:
         v1 = pop(stack);
         push(stack, ~v1);
         return pc + sizeof(Byte);
-    case L_NOT:
+    case NOT:
         v1 = pop(stack);
         push(stack, !v1);
         return pc + sizeof(Byte);
     case ALLOC:
         v1 = get_value(pc + sizeof(Byte), vm->program->instructions);
         Word *mem = malloc(sizeof(Word) * v1);
-        if (mem == NULL) {
+        if (mem == NULL)
+        {
             fprintf(stderr, "ERROR: COULD NOT ALLOCATE MEMORY\n");
             exit(EXIT_FAILURE);
         }
-        push(stack, (Word) mem);
+        push(stack, (Word)mem);
         return pc + sizeof(Byte) + sizeof(Word);
     case FREE:
         v1 = pop(stack);
@@ -191,7 +219,7 @@ int execute_inst(Opcode op, VM *vm)
     case JMP_IF_FALSE:
         return execute_jump_inst(op, vm);
     case PRINT:
-        printf("%c", (char) pop(stack));
+        printf("%c", (char)pop(stack));
         return pc + sizeof(Byte);
     case PRINT_INT:
         printf("%lu\n", pop(stack));
@@ -257,28 +285,28 @@ int execute_simple_inst(Opcode op, VM *vm)
     case POW:
         result = pow(lhs, rhs);
         break;
-    case L_AND:
+    case AND:
         result = lhs && rhs;
         break;
-    case L_OR:
+    case OR:
         result = lhs || rhs;
         break;
-    case L_XOR:
+    case XOR:
         result = (lhs || rhs) && !(lhs && rhs);
         break;
-    case B_AND:
+    case BITWISE_AND:
         result = lhs & rhs;
         break;
-    case B_OR:
+    case BITWISE_OR:
         result = lhs | rhs;
         break;
-    case B_XOR:
+    case BITWISE_XOR:
         result = lhs ^ rhs;
         break;
-    case SHL:
+    case SHIFT_LEFT:
         result = lhs << rhs;
         break;
-    case SHR:
+    case SHIFT_RIGHT:
         result = lhs >> rhs;
         break;
     default:
