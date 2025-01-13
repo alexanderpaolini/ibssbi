@@ -107,6 +107,7 @@ int execute_inst(Opcode op, VM *vm)
     int pc = vm->pc;
     Stack *stack = vm->stack;
     Word v1, v2, v3;
+    int i;
     switch (op)
     {
     case PUSH:
@@ -194,6 +195,13 @@ int execute_inst(Opcode op, VM *vm)
         return pc + sizeof(Byte);
     case PRINT_INT:
         printf("%lu\n", pop(stack));
+        return pc + sizeof(Byte);
+    case INPUT:
+        push(stack, getc(stdin));
+        return pc + sizeof(Byte);
+    case INPUT_INT:
+        scanf("%d", &i);
+        push(stack, i);
         return pc + sizeof(Byte);
     case HALT:
         vm->running = 0;

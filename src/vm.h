@@ -71,6 +71,8 @@ typedef enum
     // Misc
     PRINT = 0xF0,
     PRINT_INT = 0xF1,
+    INPUT = 0xF2,
+    INPUT_INT = 0xF3,
     HALT = 0xFF
 } __attribute__((packed)) Opcode;
 

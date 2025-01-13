@@ -35,6 +35,8 @@ opcode_dict = {
     "JMP_IF_FALSE": 0xE2,
     "PRINT": 0xF0,
     "PRINT_INT": 0xF1,
+    "INPUT": 0xF2,
+    "INPUT_INT": 0xF3,
     "HALT": 0xFF
 }
 

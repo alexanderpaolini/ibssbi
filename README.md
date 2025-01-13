@@ -11,6 +11,27 @@ It supports operations such as:
 
 Actual specification can be found [here](./spec.md)
 
+Example disassembled program:
+
+```txt
+INPUT_INT
+INPUT_INT
+; START
+DUP
+PUSH 0
+EQ
+JMP_IF_TRUE 35
+DUP
+ROT
+SWAP
+MOD
+JMP 2
+; END
+POP
+PRINT_INT
+HALT
+```
+
 ## Usage
 
 **To Compile**:

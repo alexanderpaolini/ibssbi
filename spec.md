@@ -75,34 +75,41 @@ A represents the input 32-bit integer.
 
 Note: The operand on jump operations is program byte not instruction number. Values are four bytes while opcodes are one byte. Programs must account for this.
 
-### Misc Operators
+### IO Operators
 
 | **Name**    | **Opcode** | **A**    | **Description**                            |
 |-------------|------------|----------|--------------------------------------------|
 | PRINT   | `0xF0`     | N/A      | Pop the top value and print it as a character. |
 | PRINT_INT   | `0xF1`     | N/A      | Pop the top value and print it as an integer. |
+| INPUT   | `0xF3`     | N/A      | Push the input value (character value) to the stack. |
+| INPUT_INT   | `0xF2`     | N/A      | Push the input value (int value) to the stack. |
+
+### Misc Operators
+
+| **Name**    | **Opcode** | **A**    | **Description**                            |
+|-------------|------------|----------|--------------------------------------------|
 | HALT        | `0xFF`     | N/A      | Halt execution, status of top value retained. |
 
 ### Example Program
 
 ```txt
-// Step 1: Push the numbers onto the stack
-PUSH 1     // 0x01 0x01  // Push 1 to the stack
-PUSH 2     // 0x01 0x02  // Push 2 to the stack
-PUSH 3     // 0x01 0x03  // Push 3 to the stack
-PUSH 4     // 0x01 0x04  // Push 4 to the stack
-PUSH 5     // 0x01 0x05  // Push 5 to the stack
+; Step 1: Push the numbers onto the stack
+PUSH 1     ; 0x01 0x01 - Push 1 to the stack
+PUSH 2     ; 0x01 0x02 - Push 2 to the stack
+PUSH 3     ; 0x01 0x03 - Push 3 to the stack
+PUSH 4     ; 0x01 0x04 - Push 4 to the stack
+PUSH 5     ; 0x01 0x05 - Push 5 to the stack
 
 // Step 2: Perform addition of all the numbers
-ADD       // 0x10 0x00  // Pop two values (5 and 4), add them, push the result (9)
-ADD       // 0x10 0x00  // Pop two values (9 and 3), add them, push the result (12)
-ADD       // 0x10 0x00  // Pop two values (12 and 2), add them, push the result (14)
-ADD       // 0x10 0x00  // Pop two values (14 and 1), add them, push the result (15)
+ADD        ; 0x10 - Pop two values (5 and 4), add them, push the result (9)
+ADD        ; 0x10 - Pop two values (9 and 3), add them, push the result (12)
+ADD        ; 0x10 - Pop two values (12 and 2), add them, push the result (14)
+ADD        ; 0x10 - Pop two values (14 and 1), add them, push the result (15)
 
 // Step 3: Print the sum
-PRINT_INT // 0x30 0x00  // Pop the top (15) and print it.
+PRINT_INT  ; 0x30 - Pop the top (15) and print it.
 
 // Step 4: Halt the program.
-PUSH 0    // 0x01 0x00  // Push 0 to the stack.
-HALT      // 0xFF 0x00  // Halt the VM, status is 0.
+PUSH 0     ; 0x01 - Push 0 to the stack.
+HALT       ; 0xFF - Halt the VM, status is 0.
 ```
