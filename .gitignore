@@ -4,6 +4,9 @@
 # Testing
 _testing
 
+# Python
+__pycache__
+
 # Prerequisites
 *.d
 

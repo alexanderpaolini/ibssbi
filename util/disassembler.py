@@ -3,6 +3,9 @@ import struct
 
 from common import opcode_dict, opcodes_with_values
 
+# Using it backwards
+opcode_dict = {v: k for k, v in opcode_dict.items()}
+
 VERSION_MAJOR = 0
 VERSION_MINOR = 0
 VERSION_PATCH = 1
@@ -10,7 +13,7 @@ VERSION_PATCH = 1
 size_t = struct.calcsize("P")
 u_int8_t = struct.calcsize("B")
 u_int16_t = 2 * struct.calcsize("B")
-size_int = struct.calcsize("i")
+size_int = struct.calcsize("P")
 
 class InvalidVersionException(Exception):
     def __init__(self, version):
@@ -27,7 +30,7 @@ def disassemble(bytecode):
     version_major = int.from_bytes(bytecode[idx:idx+u_int16_t], byteorder='little')
     version_minor = int.from_bytes(bytecode[idx+u_int16_t:idx+2*u_int16_t], byteorder='little')
     version_patch = int.from_bytes(bytecode[idx+2*u_int16_t:idx+3*u_int16_t], byteorder='little')
-    idx += 3*u_int16_t
+    idx += u_int16_t
     
     if (version_major != VERSION_MAJOR):
         raise InvalidVersionException(version_major)
