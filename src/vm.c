@@ -1,354 +1,262 @@
+#include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <math.h>
 
 #include "vm.h"
 
-/**
- * Explanation of how versioning will work:
- * 
- * A major version change means that a large
- *  part of the program has been rewritten
- *  Example: Changing the header of a file
- *         | Changing the structure of the bytecode
- * 
- * A minor version change means that a feature has been
- *  reworked. This means that code almost definitely will
- *  not work with the new interpreter.
- *  Example: Changing the address of an instruction.
- * 
- * A patch version change means that a small
- *  feature has been added.
- *  Example: Adding a new DEBUG instruction
- * 
- * Note: I dont see myself adding a DEBUG instruction
- */
-#define VERSION_MAJOR 0
-#define VERSION_MINOR 0
-#define VERSION_PATCH 1
+#define VERSION 0
 
-VM create_vm(Program *program)
+unsigned char MAGIC_NUMBER[] = {0x49, 0x42, 0x53, 0x53, 0x42, 0x49};
+
+void _ibssbi_debug_print(ibssbi_program_t *program)
 {
-    VM vm;
-    vm.pc = 0;
-    vm.program = program;
-    vm.stack = (Stack *)malloc(sizeof(Stack));
-    vm.running = 1;
-    return vm;
+    printf("============PROGRAM=============\n");
+    printf("VERSION\t\t\t%8d\n", program->header->version);
+    printf("ENTRY POINT\t\t%8d\n", program->header->entry_point);
+    printf("INSTRUCTIONS SIZE\t%8d\n", program->header->code_segment_size);
+    printf("DATA SIZE\t\t%8d\n", program->header->data_segment_size);
+
+    if (program->header->code_segment_size > 0)
+    {
+        printf("==========INSTRUCTIONS==========\n");
+        for (unsigned int i = 0; i < program->header->code_segment_size; i++)
+        {
+            ibssbi_instruction_t cur_inst = program->code_segment[i];
+            for (int i = 31; i >= 0; i--)
+                printf("%d", (cur_inst >> i) & 1);
+            printf("\n");
+        }
+    }
+
+    if (program->header->data_segment_size > 0)
+    {
+        printf("==============DATA==============\n");
+        for (unsigned int i = 0; i < program->header->data_segment_size; i++)
+        {
+            ibssbi_word_t cur_data = program->data_segment[i];
+            for (int i = 31; i >= 0; i--)
+                printf("%d", (cur_data >> i) & 1);
+            printf("\n");
+        }
+    }
 }
 
-Header read_header(FILE *input_file)
+void _ibssbi_read_bytes(FILE *f, void *buffer, size_t size)
 {
-    Header header;
-    fread(&header.major, sizeof(short), 1, input_file);
-    fread(&header.minor, sizeof(short), 1, input_file);
-    fread(&header.patch, sizeof(short), 1, input_file);
-    fread(&header.size, sizeof(int), 1, input_file);
+    size_t bytes_read = fread(buffer, 1, size, f);
 
-    if (header.major != VERSION_MAJOR)
+    if (bytes_read != size)
     {
-        fprintf(stderr, "ERROR: EXECUTABLE MAJOR VERSION DOES NOT MATCH\n");
-        fprintf(stderr, "\tEXPECTED: %d\n", VERSION_MAJOR);
-        fprintf(stderr, "\tFOUND: %d\n", header.minor);
+        if (feof(f))
+        {
+            fprintf(stderr, "ERROR: REACHED END OF INPUT FILE\n");
+        }
+        else
+        {
+            fprintf(stderr, "ERROR: UNKNOWN ERROR READING FILE\n");
+        }
+
+        fclose(f);
         exit(EXIT_FAILURE);
     }
-
-    if (header.minor != VERSION_MINOR)
-    {
-        fprintf(stderr, "ERROR: EXECUTABLE MINOR VERSION DOES NOT MATCH.\n");
-        fprintf(stderr, "\tEXPECTED: %d\n", VERSION_MINOR);
-        fprintf(stderr, "\tFOUND: %d\n", header.minor);
-        exit(EXIT_FAILURE);
-    }
-
-    if (header.minor > VERSION_MINOR)
-    {
-        fprintf(stderr, "ERROR: EXECUTABLE PATCH VERSION DOES NOT MATCH.\n");
-        fprintf(stderr, "\tEXPECTED: <=%d\n", VERSION_PATCH);
-        fprintf(stderr, "\tFOUND: %d\n", header.patch);
-        exit(EXIT_FAILURE);
-    }
-
-    if (DEBUG)
-    {
-        printf("== program ==\n");
-        printf("VERSION\t%hi.%hi.%hi\n", header.major, header.minor, header.patch);
-        printf("SIZE\t%d\n", header.size);
-    }
-
-    return header;
 }
 
-FILE *open_program(const char *filename)
+ibssbi_opcode_types_t _ibssbi_get_opcode_type(ibssbi_instruction_t instruction)
 {
-    FILE *input = fopen(filename, "rb");
+    uint8_t type = GET_OPCODE(instruction) & TYPE_MASK;
 
-    if (input == NULL)
+    switch (type)
+    {
+    case TYPE_R:
+        return TYPE_R;
+    case TYPE_I:
+        return TYPE_I;
+    case TYPE_J:
+        return TYPE_J;
+    case TYPE_SYS:
+        return TYPE_SYS;
+    default:
+        fprintf(stderr, "ERROR: UNRECOGNIZED OPCODE TYPE");
+        fprintf(stderr, "\tTHIS SHOULDN'T BE POSSIBLE");
+        exit(EXIT_FAILURE);
+    }
+}
+
+ibssbi_program_t *read_program(const char *filename)
+{
+    ibssbi_program_t *program = malloc(sizeof(ibssbi_program_t));
+
+    program->header = malloc(sizeof(ibssbi_header_t));
+
+    FILE *f = fopen(filename, "rb");
+
+    if (f == NULL)
     {
         fprintf(stderr, "ERROR: COULD NOT OPEN INPUT FILE\n");
-        exit(EXIT_FAILURE);
+        fprintf(stderr, "\tARE YOU SURE THIS FILE EXISTS?\n");
+        goto failure;
     }
 
-    return input;
-}
+    unsigned char buffer[sizeof(MAGIC_NUMBER)];
 
-Program read_program(Header *header, FILE *input_file)
-{
-    Program program;
-    program.header = header;
+    _ibssbi_read_bytes(f, buffer, sizeof(MAGIC_NUMBER));
 
-    program.instructions = (Byte *)(malloc(sizeof(Byte) * header->size));
-    fread(program.instructions, sizeof(Byte), header->size, input_file);
-
-    if (DEBUG)
+    for (unsigned long i = 0; i < sizeof(MAGIC_NUMBER); i++)
     {
-        printf("PROGRAM\t");
-        for (int i = 0; i < header->size; i++)
+        if (buffer[i] != MAGIC_NUMBER[i])
         {
-            printf("0x%02X ", program.instructions[i]);
+            fprintf(stderr, "ERROR: INPUT FILE MAGIC NUMBER DOES NOT MATCH.\n");
+            fprintf(stderr, "\tARE YOU SURE THIS IS AN EXECUTABLE?\n");
+            goto failure;
         }
-        printf("\n");
     }
 
-    fclose(input_file);
+    _ibssbi_read_bytes(f, &program->header->version, sizeof(uint32_t));
+    _ibssbi_read_bytes(f, &program->header->entry_point, sizeof(uint32_t));
+    _ibssbi_read_bytes(f, &program->header->code_segment_size, sizeof(uint32_t));
+    _ibssbi_read_bytes(f, &program->header->data_segment_size, sizeof(uint32_t));
+
+    int code_segment_bytes = sizeof(ibssbi_instruction_t) * program->header->code_segment_size;
+    program->code_segment = malloc(code_segment_bytes);
+    _ibssbi_read_bytes(f, program->code_segment, code_segment_bytes);
+
+    int data_segment_bytes = sizeof(ibssbi_word_t) * program->header->data_segment_size;
+    program->data_segment = malloc(data_segment_bytes);
+    _ibssbi_read_bytes(f, program->data_segment, data_segment_bytes);
+
+    program->pc = program->header->entry_point;
+    program->sp = 0;
+    program->fp = 0;
+
+    fclose(f);
+
+#ifdef DEBUG
+    _ibssbi_debug_print(program);
+#endif
 
     return program;
+
+failure:
+    fclose(f);
+    exit(EXIT_FAILURE);
 }
 
-void execute(VM *vm)
+ibssbi_status_code_t interpret_program(ibssbi_program_t *program)
 {
-    while (vm->running)
+    while (program->pc < program->header->code_segment_size)
     {
-        vm->pc = execute_inst(vm->program->instructions[vm->pc], vm);
-    }
-}
+        ibssbi_instruction_t cur_inst = program->code_segment[program->pc];
 
-Word get_value(int position, Byte *instructions)
-{
-    // Pointer arithmetic:
-    // Cast the value of the bytes starting at position to an int
-    return *(Word *)((Byte *)instructions + position);
-}
-
-int execute_inst(Opcode op, VM *vm)
-{
-    int pc = vm->pc;
-    Stack *stack = vm->stack;
-    Word v1, v2, v3;
-    int i;
-    switch (op)
-    {
-    case PUSH:
-        push(stack, get_value(pc + sizeof(Byte), vm->program->instructions));
-        return pc + sizeof(Byte) + sizeof(Word);
-    case POP:
-        pop(stack);
-        return pc + sizeof(Byte);
-    case DUP:
-        v1 = pop(stack);
-        push(stack, v1);
-        push(stack, v1);
-        return pc + sizeof(Byte);
-    case SWAP:
-        v1 = pop(stack);
-        v2 = pop(stack);
-        push(stack, v1);
-        push(stack, v2);
-        return pc + sizeof(Byte);
-    case ROT:
-        v1 = pop(stack); // C
-        v2 = pop(stack); // B
-        v3 = pop(stack); // A
-        push(stack, v2); // ABC -> BCA
-        push(stack, v1);
-        push(stack, v3);
-        return pc + sizeof(Byte);
-    case ADD:
-    case SUB:
-    case DIV:
-    case MULT:
-    case MOD:
-    case POW:
-    case EQ:
-    case NEQ:
-    case LT:
-    case LTE:
-    case GT:
-    case GTE:
-    case AND:
-    case OR:
-    case XOR:
-    case BITWISE_AND:
-    case BITWISE_OR:
-    case BITWISE_XOR:
-    case SHIFT_LEFT:
-    case SHIFT_RIGHT:
-        return execute_simple_inst(op, vm);
-    case BITWISE_NOT:
-        v1 = pop(stack);
-        push(stack, ~v1);
-        return pc + sizeof(Byte);
-    case NOT:
-        v1 = pop(stack);
-        push(stack, !v1);
-        return pc + sizeof(Byte);
-    case ALLOC:
-        v1 = get_value(pc + sizeof(Byte), vm->program->instructions);
-        Word *mem = malloc(sizeof(Word) * v1);
-        if (mem == NULL)
+        ibssbi_opcode_types_t cur_opcode_type = _ibssbi_get_opcode_type(cur_inst);
+        switch (cur_opcode_type)
         {
-            fprintf(stderr, "ERROR: COULD NOT ALLOCATE MEMORY\n");
-            exit(EXIT_FAILURE);
+        case TYPE_R:
+            switch (GET_OPCODE(cur_inst))
+            {
+            case NOP:
+                break;
+            case ADD:
+                program->registers[GET_R_RD(cur_inst)] = program->registers[GET_R_RS(cur_inst)] + program->registers[GET_R_RT(cur_inst)];
+                break;
+            case SUB:
+                program->registers[GET_R_RD(cur_inst)] = program->registers[GET_R_RS(cur_inst)] - program->registers[GET_R_RT(cur_inst)];
+                break;
+            case MUL:
+                program->registers[GET_R_RD(cur_inst)] = program->registers[GET_R_RS(cur_inst)] * program->registers[GET_R_RT(cur_inst)];
+                break;
+            case DIV:
+                program->registers[GET_R_RD(cur_inst)] = program->registers[GET_R_RS(cur_inst)] / program->registers[GET_R_RT(cur_inst)];
+                break;
+            case MOD:
+                program->registers[GET_R_RD(cur_inst)] = program->registers[GET_R_RS(cur_inst)] % program->registers[GET_R_RT(cur_inst)];
+                break;
+            case AND:
+                program->registers[GET_R_RD(cur_inst)] = program->registers[GET_R_RS(cur_inst)] & program->registers[GET_R_RT(cur_inst)];
+                break;
+            case OR:
+                program->registers[GET_R_RD(cur_inst)] = program->registers[GET_R_RS(cur_inst)] | program->registers[GET_R_RT(cur_inst)];
+                break;
+            case XOR:
+                program->registers[GET_R_RD(cur_inst)] = program->registers[GET_R_RS(cur_inst)] ^ program->registers[GET_R_RT(cur_inst)];
+                break;
+            case NOT:
+                program->registers[GET_R_RD(cur_inst)] = !program->registers[GET_R_RS(cur_inst)];
+                break;
+            case SHL:
+                program->registers[GET_R_RD(cur_inst)] = program->registers[GET_R_RS(cur_inst)] << program->registers[GET_R_RT(cur_inst)];
+                break;
+            case SHR:
+                program->registers[GET_R_RD(cur_inst)] = program->registers[GET_R_RS(cur_inst)] >> program->registers[GET_R_RT(cur_inst)];
+                break;
+            default:
+                fprintf(stderr, "ERROR: TYPE R OPERATION NOT IMPLEMENTED\n");
+                exit(EXIT_FAILURE);
+            }
+#ifdef DEBUG
+            printf("%d, %d, %d, %d\n", GET_OPCODE(cur_inst), GET_R_RD(cur_inst), GET_R_RS(cur_inst), GET_R_RT(cur_inst));
+#endif
+            break;
+        case TYPE_I:
+            switch (GET_OPCODE(cur_inst))
+            {
+            case ADDI:
+                program->registers[GET_R_RD(cur_inst)] = program->registers[GET_R_RS(cur_inst)] + GET_I_IMM(cur_inst);
+                break;
+            case SUBI:
+                program->registers[GET_R_RD(cur_inst)] = program->registers[GET_R_RS(cur_inst)] - GET_I_IMM(cur_inst);
+                break;
+            default:
+                fprintf(stderr, "ERROR: TYPE I OPERATION NOT IMPLEMENTED\n");
+                exit(EXIT_FAILURE);
+            }
+#ifdef DEBUG
+            printf("%d, %d, %d, %d\n", GET_OPCODE(cur_inst), GET_I_RD(cur_inst), GET_I_RS(cur_inst), GET_I_IMM(cur_inst));
+#endif
+            break;
+        case TYPE_J:
+#ifdef DEBUG
+            printf("%d, %d\n", GET_OPCODE(cur_inst), GET_J_T(cur_inst));
+#endif
+            switch (GET_OPCODE(cur_inst))
+            {
+            case JMP:
+                program->pc += GET_J_T(cur_inst);
+                break;
+            default:
+                fprintf(stderr, "ERROR: TYPE J OPERATION NOT IMPLEMENTED\n");
+                exit(EXIT_FAILURE);
+            }
+            break;
+        case TYPE_SYS:
+#ifdef DEBUG
+            printf("SYS, %d\n", GET_SYS_I(cur_inst));
+#endif
+            switch (GET_SYS_I(cur_inst))
+            {
+            case SYS_HALT:
+                return GET_SYS_I(cur_inst);
+                break;
+            case SYS_PRINT_CHAR:
+                putchar(program->registers[REG_ARGUMENT_0]);
+                break;
+            case SYS_PRINT_INT:
+                printf("%d", program->registers[REG_ARGUMENT_0]);
+                break;
+            case SYS_PRINT_STRING:
+                printf("%s", (char *)&program->data_segment[program->registers[REG_ARGUMENT_0]]);
+                break;
+            // TODO: handle SYS_PRINT_FLOAT
+            // TODO: handle SYS_PRINT_DOUBLE
+            default:
+                fprintf(stderr, "ERROR: UNKNOWN SYSTEM CALL\n");
+                exit(EXIT_FAILURE);
+            }
+            break;
         }
-        push(stack, (Word)mem);
-        return pc + sizeof(Byte) + sizeof(Word);
-    case FREE:
-        v1 = pop(stack);
-        free((Word *)v1);
-        return pc + sizeof(Byte);
-    case STO:
-        v1 = pop(stack);
-        v2 = pop(stack);
-        *((Word *)v2) = v1;
-        return pc + sizeof(Byte);
-    case RET:
-        v1 = pop(stack);
-        push(stack, *(Word *)v1);
-        return pc + sizeof(Byte);
-    case JMP:
-    case JMP_IF_TRUE:
-    case JMP_IF_FALSE:
-        return execute_jump_inst(op, vm);
-    case PRINT:
-        printf("%c", (char)pop(stack));
-        return pc + sizeof(Byte);
-    case PRINT_INT:
-        printf("%lu\n", pop(stack));
-        return pc + sizeof(Byte);
-    case INPUT:
-        push(stack, getc(stdin));
-        return pc + sizeof(Byte);
-    case INPUT_INT:
-        scanf("%d", &i);
-        push(stack, i);
-        return pc + sizeof(Byte);
-    case HALT:
-        vm->running = 0;
-        return 0;
-    default:
-        fprintf(stderr, "ERROR: UNKNOWN INSTRUCTION 0x%02X\n", op);
-        vm->running = 0;
-        exit(1);
-    }
-}
 
-int execute_simple_inst(Opcode op, VM *vm)
-{
-    Word rhs = pop(vm->stack);
-    Word lhs = pop(vm->stack);
-    Word result;
-
-    switch (op)
-    {
-    case ADD:
-        result = lhs + rhs;
-        break;
-    case SUB:
-        result = lhs - rhs;
-        break;
-    case DIV:
-        result = lhs / rhs;
-        break;
-    case MULT:
-        result = lhs * rhs;
-        break;
-    case MOD:
-        result = lhs % rhs;
-        break;
-    case EQ:
-        result = lhs == rhs;
-        break;
-    case NEQ:
-        result = lhs != rhs;
-        break;
-    case LT:
-        result = lhs < rhs;
-        break;
-    case LTE:
-        result = lhs <= rhs;
-        break;
-    case GT:
-        result = lhs > rhs;
-        break;
-    case GTE:
-        result = lhs >= rhs;
-        break;
-    case POW:
-        result = pow(lhs, rhs);
-        break;
-    case AND:
-        result = lhs && rhs;
-        break;
-    case OR:
-        result = lhs || rhs;
-        break;
-    case XOR:
-        result = (lhs || rhs) && !(lhs && rhs);
-        break;
-    case BITWISE_AND:
-        result = lhs & rhs;
-        break;
-    case BITWISE_OR:
-        result = lhs | rhs;
-        break;
-    case BITWISE_XOR:
-        result = lhs ^ rhs;
-        break;
-    case SHIFT_LEFT:
-        result = lhs << rhs;
-        break;
-    case SHIFT_RIGHT:
-        result = lhs >> rhs;
-        break;
-    default:
-        fprintf(stderr, "ERROR: UNKNOWN SIMPLE INSTRUCTION: 0x%x\n", op);
-        exit(EXIT_FAILURE);
-        result = 0;
-        break;
+        program->pc++;
     }
 
-    push(vm->stack, result);
-    return vm->pc + sizeof(Byte);
-}
-
-int execute_jump_inst(Opcode op, VM *vm)
-{
-    Stack *stack = vm->stack;
-    int pc = vm->pc;
-
-    int top = op == JMP ? 0 : pop(stack);
-    if (
-        op == JMP ||
-        (op == JMP_IF_TRUE && top) ||
-        (op == JMP_IF_FALSE && !top))
-    {
-        Word val = get_value(pc + sizeof(Byte), vm->program->instructions);
-        return val;
-    }
-    return pc + sizeof(Byte) + sizeof(Word);
-}
-
-void push(Stack *s, Word val)
-{
-    s->stack[s->sp++] = val;
-}
-
-Word pop(Stack *s)
-{
-    return s->stack[--s->sp];
-}
-
-void free_vm(VM *vm)
-{
-    free(vm->program->instructions);
-    free(vm->stack);
+    return SUCCESS;
 }

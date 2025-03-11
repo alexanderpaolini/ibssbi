@@ -8,18 +8,13 @@ int main(int argc, const char *argv[])
     if (argc != 2)
     {
         fprintf(stderr, "Expected use: 'ibssbi [filename]'\n");
-        return 1;
+        return EXIT_FAILURE;
     }
 
-    FILE *input = open_program(argv[1]);
-    Header header = read_header(input);
+    ibssbi_program_t *prog = read_program(argv[1]);
+    ibssbi_status_code_t program_status = interpret_program(prog);
 
-    Program program = read_program(&header, input);
-    VM vm = create_vm(&program);
+    printf("STATUS: %d\n", program_status);
 
-    execute(&vm);
-
-    free_vm(&vm);
-
-    return 0;
+    return program_status;
 }

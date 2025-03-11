@@ -1,107 +1,143 @@
-# Incredibly Bad Super Simple Bytecode Interpreter Specification
+# Simple Bytecode VM Specification
 
-This simple bytecode virtual machine is stack-based. Operations will be 8 bits, optionally followed by a 32-bit value.
+This document describes a register-based bytecode virtual machine designed for simplicity and efficiency.
 
-**Format**:  
-`OP A`  
-`OP` represents the 8-bit opcode.  
-`A` represents the input 32-bit integer.
+## Overview
 
----
+The VM is a 32-bit register-based architecture with 64 egisters and support for stack operations. Each instruction is 32 bits wide, providing a balance between expressiveness and simplicity.
 
-## Operators
+## Registers
 
-### Stack Manipulation Operators
+The VM provides 64 registers (R0-R63), each 32 bits wide:
 
-| **Name** | **Opcode** | **A**   | **Description**                                      |
-|----------|------------|---------|------------------------------------------------------|
-| PUSH     | `0x01`     | `<i8>`  | Push integer value to the stack.                     |
-| POP      | `0x02`     | N/A     | Discard top value from the stack.                    |
-| DUP      | `0x03`     | N/A     | Push the top of the stack to the top of the stack.   |
-| SWAP     | `0x04`     | N/A     | Swap the top two elements of the stack.              |
-| ROT      | `0x05`     | N/A     | Rotate the top 3 values on the stack: A B C -> B C A |
+| Register | Name | Description | Usage |
+|----------|------|-------------|-------|
+| R0 | ZERO | Hardwired zero | Always contains the value 0 |
+| R1 | SP | Stack Pointer | Points to the top of the stack |
+| R2 | FP | Frame Pointer | Points to the current call frame |
+| R3 | RA | Return Address | Holds the return address for function calls |
+| R4-R7 | A0-A3 | Argument Registers | Used for function arguments |
+| R8-R15 | T0-T7 | Temporary Registers | Temporary values, not preserved across calls |
+| R16-R17 | V0-V1 | Function return values | Set as return values for functions |
+| R18-R63 | S0-S45 | Saved Registers | Values preserved across function calls |
 
----
+## Instruction Formats
 
-### Arithmetic Operators
+All instructions are 32 bits (4 bytes) with the following formats:
 
-| **Name** | **Opcode** | **A**   | **Description**                                      |
-|----------|------------|---------|------------------------------------------------------|
-| ADD      | `0x10`     | N/A     | Pop 2 values, push their sum to the stack.           |
-| SUB      | `0x11`     | N/A     | Pop 2 values, push top minus bottom to the stack.    |
-| DIV      | `0x12`     | N/A     | Pop 2 values, push top divided by bottom to the stack. |
-| MULT     | `0x13`     | N/A     | Pop 2 values, push their product to the stack.       |
-| MOD      | `0x14`     | N/A     | Pop 2 values, push bottom mod top to the stack.      |
-| POW      | `0x15`     | N/A     | Pop 2 values, push bottom ** top to the stack.       |
+### R-Type (Register operations)
 
----
+```txt
+| OPCODE (6 bits) | DEST (6 bits) | SRC1 (6 bits) | SRC2 (6 bits) | FUNC (8 bits) |
+```
 
-### Comparison Operators
+- OPCODE: Operation category
+- DEST: Destination register
+- SRC1, SRC2: Source registers
+- FUNC: Function code for additional operation specification
 
-| **Name**  | **Opcode** | **A**   | **Description**                                      |
-|-----------|------------|---------|------------------------------------------------------|
-| EQ        | `0x20`     | N/A     | Pop 2 values, push `1` if they are equal, otherwise push `0`. |
-| NEQ       | `0x21`     | N/A     | Pop 2 values, push `0` if they are equal, otherwise push `1`. |
-| LT        | `0x22`     | N/A     | Pop 2 values, push `1` if the first is less than the second, otherwise push `0`. |
-| LTE       | `0x23`     | N/A     | Pop 2 values, push `1` if the first is less than or equal to the second, otherwise push `0`. |
-| GT        | `0x24`     | N/A     | Pop 2 values, push `1` if the first is greater than the second, otherwise push `0`. |
-| GTE       | `0x25`     | N/A     | Pop 2 values, push `1` if the first is greater than or equal to the second, otherwise push `0`. |
+### I-Type (Immediate operations)
 
----
+```txt
+| OPCODE (6 bits) | DEST (6 bits) | SRC1 (6 bits) | IMMEDIATE (14 bits) |
+```
 
-### Bitwise and Logical Operators
+- IMMEDIATE: 14-bit signed immediate value (-8192 to +8191)
 
-| **Name**        | **Opcode** | **A**   | **Description**                                      |
-|-----------------|------------|---------|------------------------------------------------------|
-| AND             | `0x30`     | N/A     | Pop two values, push `1` if both are non-zero, else push `0`. |
-| OR              | `0x31`     | N/A     | Pop two values, push `1` if at least one is non-zero, else push `0`. |
-| XOR             | `0x32`     | N/A     | Pop two values, push `1` if exactly one is non-zero, else push `0`. |
-| NOT             | `0x33`     | N/A     | Pop one value, push `1` if the value is zero, else push `0`. |
-| BITWISE_AND     | `0x34`     | N/A     | Pop two values, perform bitwise AND, and push the result. |
-| BITWISE_OR      | `0x35`     | N/A     | Pop two values, perform bitwise OR, and push the result. |
-| BITWISE_XOR     | `0x36`     | N/A     | Pop two values, perform bitwise XOR, and push the result. |
-| BITWISE_NOT     | `0x37`     | N/A     | Pop one value, perform bitwise NOT (invert bits), and push the result. |
-| SHIFT_LEFT      | `0x38`     | N/A     | Pop two values, shift the first value left by the second (bitwise shift), and push the result. |
-| SHIFT_RIGHT     | `0x39`     | N/A     | Pop two values, shift the first value right by the second (bitwise shift), and push the result. |
+### J-Type (Jump operations)
 
----
+```txt
+| OPCODE (6 bits) | TARGET (26 bits) |
+```
 
-### Memory Manipulation Operators
+- TARGET: Jump target address (absolute or relative)
 
-| **Name**    | **Opcode** | **A**    | **Description**                                      |
-|-------------|------------|----------|------------------------------------------------------|
-| ALLOC       | `0x40`     | `<i8>`   | Allocate `A` bytes and return the address.           |
-| FREE        | `0x41`     | `<i8>`   | Free the memory at the address at the top of the stack. |
-| STO         | `0x42`     | N/A      | Store the top of the stack to the address below it. Pops both values from the stack. |
-| RET         | `0x43`     | N/A      | Pushes the value at the address popped from the stack to the stack. |
+### SYS-Type (System Calls)
 
----
+```txt
+| OPCODE (6 bits) | TARGET (26 bits) |
+```
 
-### Control Flow Operators
+- TARGET: Jump target address (absolute or relative)
 
-| **Name**        | **Opcode** | **A**    | **Description**                                      |
-|-----------------|------------|----------|------------------------------------------------------|
-| JMP             | `0xE0`     | `<i8>`   | Jump to address `A` (unconditional jump).            |
-| JMP_IF_TRUE     | `0xE1`     | `<i8>`   | Jump to address `A` if the top value is non-zero.    |
-| JMP_IF_FALSE    | `0xE2`     | `<i8>`   | Jump to address `A` if the top value is zero.        |
+## Opcodes
 
-> **Note**: The operand on jump operations is the program byte, not the instruction number. Values are four bytes, while opcodes are one byte. Programs must account for this.
+| Opcode | Name | Format | Description |
+|--------|------|--------|-------------|
+| 0x00 | NOP | R | No operation |
+| 0x01 | ADD | R | Addition: DEST = SRC1 + SRC2 |
+| 0x02 | SUB | R | Subtraction: DEST = SRC1 - SRC2 |
+| 0x03 | MUL | R | Multiplication: DEST = SRC1 * SRC2 |
+| 0x04 | DIV | R | Division: DEST = SRC1 / SRC2 |
+| 0x05 | MOD | R | Modulo: DEST = SRC1 % SRC2 |
+| 0x06 | AND | R | Bitwise AND: DEST = SRC1 & SRC2 |
+| 0x07 | OR | R | Bitwise OR: DEST = SRC1 \| SRC2 |
+| 0x08 | XOR | R | Bitwise XOR: DEST = SRC1 ^ SRC2 |
+| 0x09 | NOT | R | Bitwise NOT: DEST = ~SRC1 (SRC2 ignored) |
+| 0x0A | SHL | R | Shift left: DEST = SRC1 << SRC2 |
+| 0x0B | SHR | R | Shift right: DEST = SRC1 >> SRC2 |
+| 0x10 | ADDI | I | Add immediate: DEST = SRC1 + IMM |
+| 0x11 | SUBI | I | Subtract immediate: DEST = SRC1 - IMM |
+| 0x12 | MULI | I | Multiply immediate: DEST = SRC1 * IMM |
+| 0x13 | DIVI | I | Divide immediate: DEST = SRC1 / IMM |
+| 0x14 | MODI | I | Modulo immediate: DEST = SRC1 % IMM |
+| 0x15 | ANDI | I | Bitwise AND immediate: DEST = SRC1 & IMM |
+| 0x16 | ORI | I | Bitwise OR immediate: DEST = SRC1 \| IMM |
+| 0x17 | XORI | I | Bitwise XOR immediate: DEST = SRC1 ^ IMM |
+| 0x18 | SHLI | I | Shift left immediate: DEST = SRC1 << IMM |
+| 0x19 | SHRI | I | Shift right immediate: DEST = SRC1 >> IMM |
+| 0x20 | LOAD | I | Load: DEST = MEM[IMM] |
+| 0x21 | STORE | I | Store: MEM[IMM] = SRC1 |
+| 0x22 | PUSH | I | Push to stack: MEM[IMM] = SRC1, SP -= 4 |
+| 0x23 | POP | I | Pop from stack: SP += 4, DEST = MEM[IM] |
+| 0x30 | JMP | J | Unconditional jump to TARGET |
+| 0x31 | JEQ | R | Jump if equal: if SRC1 == SRC2 then jump to DEST |
+| 0x32 | JNE | R | Jump if not equal: if SRC1 != SRC2 then jump to DEST |
+| 0x33 | JLT | R | Jump if less than: if SRC1 < SRC2 then jump to DEST |
+| 0x34 | JGT | R | Jump if greater than: if SRC1 > SRC2 then jump to DEST |
+| 0x35 | JLE | R | Jump if less or equal: if SRC1 <= SRC2 then jump to DEST |
+| 0x36 | JGE | R | Jump if greater or equal: if SRC1 >= SRC2 then jump to DEST |
+| 0x37 | CALL | J | Call function at TARGET, save return address in RA |
+| 0x38 | RET | R | Return from function: jump to address in RA |
+| 0xFF | HALT | R | Halt execution |
+| 0xFE | SYS | I | System call with code in IMMEDIATE |
 
----
+## Stack Operations
 
-### IO Operators
+The stack grows downward in memory. The stack pointer (SP, R1) points to the top element of the stack.
 
-| **Name**        | **Opcode** | **A**    | **Description**                                      |
-|-----------------|------------|----------|------------------------------------------------------|
-| PRINT           | `0xF0`     | N/A      | Pop the top value and print it as a character.       |
-| PRINT_INT       | `0xF1`     | N/A      | Pop the top value and print it as an integer.        |
-| INPUT           | `0xF3`     | N/A      | Push the input value (character value) to the stack. |
-| INPUT_INT       | `0xF2`     | N/A      | Push the input value (int value) to the stack.       |
+- PUSH: Store value at address in SP, then decrement SP by 4
+- POP: Increment SP by 4, then load value from address in SP
 
----
+## Function Call Convention
 
-### Misc Operators
+1. Caller saves temporary registers it wants to preserve
+2. Arguments are placed in registers A0-A3 (R4-R7)
+3. Additional arguments are pushed onto the stack
+4. CALL instruction is executed, saving return address in RA
+5. Callee saves FP and adjusts SP/FP as needed
+6. Return value is placed in A0 (R4)
+7. Callee restores saved registers and FP
+8. RET instruction returns to the caller
+9. Caller restores any saved temporary registers
 
-| **Name**        | **Opcode** | **A**    | **Description**                                      |
-|-----------------|------------|----------|------------------------------------------------------|
-| HALT            | `0xFF`     | N/A      | Halt execution, status of top value retained.        |
+## Memory Model
+
+- Byte-addressable memory
+- Little-endian byte order
+- 32-bit word size
+- Instructions are aligned on 4-byte boundaries
+- Memory is a linear array of bytes
+- No hardware memory protection (implementation-dependent)
+
+## Binary Format
+
+Bytecode files have the following format:
+
+1. Magic number (6 bytes): 0x494253534249 ("IBSSBI")
+2. Version (4 bytes): 0x00000001
+3. Entry point (4 bytes): Address of first instruction to execute
+4. Code segment size (4 bytes): Size of code in bytes
+5. Data segment size (4 bytes): Size of data in bytes
+6. Code segment: Instructions
+7. Data segment: Data accessable as memory, loaded in at runtime

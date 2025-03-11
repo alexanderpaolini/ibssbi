@@ -1,31 +1,19 @@
-# Set the compiler and flags
 CC = gcc
-CFLAGS = -Wall -g
+CFLAGS = -Wall -Wextra -O2
 
-NAME = ibssbi
-
-# Set the output binary directory and the program name
+SRC_DIR = ./src
 OUT_DIR = ./out
-PROGRAM = $(OUT_DIR)/$(NAME)
 
-# Set the source files
-PROGRAM_SRC = ./src/main.c ./src/vm.c
-DISASSEMBLER_SRC = ./src/disassembler.c
-ASSEMBLER_SRC = ./src/assembler.c
+TARGET = $(OUT_DIR)/ibssbi
+SRC = $(SRC_DIR)/main.c $(SRC_DIR)/vm.c
 
-# Create the out directory if it doesn't exist
-$(OUT_DIR):
+$(TARGET): $(SRC)
 	mkdir -p $(OUT_DIR)
+	$(CC) $(CFLAGS) $(SRC) -o $(TARGET)
 
-# Rule to compile the program
-$(PROGRAM): $(PROGRAM_SRC) | $(OUT_DIR)
-	$(CC) $(CFLAGS) -o $(PROGRAM) $(PROGRAM_SRC)
-
-# Rule to clean up the compiled files
 clean:
 	rm -rf $(OUT_DIR)
 
-# Default target: build the program and disassembler
-all: $(PROGRAM)
-
-program: ${PROGRAM}
+test_script:
+	mkdir -p $(OUT_DIR)
+	$(CC) $(CFLAGS) ./src/create_test_program.c -o ./out/create_test_program
